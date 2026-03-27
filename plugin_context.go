@@ -24,7 +24,7 @@ func LoadPluginContext(path string) (*PluginContext, error) {
 	}
 	onRegister, ok := symbol.(api.OnRegisterFunc)
 	if !ok {
-		return nil, fmt.Errorf("error parsing %s#%s: %%w", api.SymbolOnRegister, path)
+		return nil, fmt.Errorf("could not find %s in %s", api.SymbolOnRegister, path)
 	}
 
 	pluginCtx := &PluginContext{

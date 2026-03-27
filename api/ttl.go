@@ -26,7 +26,7 @@ func ParseTTL(text string) (TTL, error) {
 	if !(ttlMinDuration <= result && result <= ttlMaxDuration) {
 		return 0, fmt.Errorf("invalid TTL %q", text)
 	}
-	return TTL(result), err
+	return TTL(result / time.Second), err
 }
 
 func (t TTL) Seconds() uint32 {

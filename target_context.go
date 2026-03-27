@@ -103,16 +103,12 @@ func (t *TargetContext) Deactivate() bool {
 }
 
 func LoadTargetContext(rt *RuntimeContext, cfg api.TargetConfig) (*TargetContext, error) {
-	var ok bool
-	var activator api.Activator
-	var activatorConfig map[string]any
-
-	if cfg.Activator != nil {
-		activator, ok = rt.Activators[cfg.Activator.Kind]
-		if !ok {
-			return nil, fmt.Errorf("unknown activator kind %q", cfg.Activator.Kind)
-		}
-		activatorConfig = cfg.Activator.Config
+	activator, ok := rt.Activators[cfg.Activator.Kind]
+	if !ok {
+		return nil, fmt.Errorf("unknown activator kind %q", cfg.Activator.Kind)
+	}
+	if activator == nil {
+		return nil, fmt.Errorf("activator kind %q resolved to nil", cfg.Activator.Kind)
 	}
 
 	t := &TargetContext{
@@ -120,13 +116,10 @@ func LoadTargetContext(rt *RuntimeContext, cfg api.TargetConfig) (*TargetContext
 		services:        make(map[string]*TargetServiceContext, len(cfg.Services)),
 		idleTimeout:     cfg.IdleTimeout,
 		activator:       activator,
-		activatorConfig: activatorConfig,
+		activatorConfig: cfg.Activator.Config,
 		requests:        make(chan api.TargetState, 1),
 	}
 	for _, service := range cfg.Services {
-		if !ok {
-			return nil, fmt.Errorf("no frontend for service %q", service.Name)
-		}
 		t.services[service.Name] = &TargetServiceContext{
 			name:     service.Name,
 			protocol: service.Protocol,

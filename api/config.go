@@ -92,6 +92,9 @@ func (c *Config) Validate() error {
 		if len(target.Services) == 0 {
 			return fmt.Errorf("%s.target_services must contain at least one service", targetRef)
 		}
+		if target.Activator == nil {
+			return fmt.Errorf("%s.activator is required", targetRef)
+		}
 
 		serviceMap := make(map[string]TargetServiceConfig, len(target.Services))
 		for j, service := range target.Services {
@@ -118,8 +121,8 @@ func (c *Config) Validate() error {
 		}
 		targets[target.Name] = serviceMap
 
-		if target.Activator != nil && target.Activator.Kind == "" {
-			return fmt.Errorf("%s.activator.kind is required when %s.activator is configured", targetRef, targetRef)
+		if target.Activator.Kind == "" {
+			return fmt.Errorf("%s.activator.kind is required", targetRef)
 		}
 	}
 
@@ -167,8 +170,11 @@ func (c *Config) Validate() error {
 				service.Protocol.String(),
 			)
 		}
-		if frontend.Intercept != nil && frontend.Intercept.Kind == "" {
-			return fmt.Errorf("%s.intercept.kind is required when %s.intercept is configured", frontendRef, frontendRef)
+		if frontend.Intercept == nil {
+			return fmt.Errorf("%s.intercept is required", frontendRef)
+		}
+		if frontend.Intercept.Kind == "" {
+			return fmt.Errorf("%s.intercept.kind is required", frontendRef)
 		}
 	}
 

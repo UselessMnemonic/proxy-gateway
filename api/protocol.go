@@ -25,7 +25,7 @@ func (p Protocol) String() string {
 }
 
 func (p Protocol) IsValid() bool {
-	return p.String() != "unknown"
+	return p.String() != "invalid"
 }
 
 func ParseProtocol(s string) (Protocol, error) {

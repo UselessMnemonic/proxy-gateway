@@ -50,15 +50,12 @@ func LoadFrontendContext(rCtx *RuntimeContext, cfg api.FrontendConfig) (*Fronten
 		return nil, fmt.Errorf("service  %s not found in target %s", cfg.Forward.Service, cfg.Forward.Target)
 	}
 
-	var interceptor api.Interceptor
-	var interceptorConfig map[string]any
-	if cfg.Intercept != nil {
-		var ok bool
-		interceptor, ok = rCtx.Interceptors[cfg.Intercept.Kind]
-		if !ok {
-			return nil, fmt.Errorf("unknown interceptor kind %q", cfg.Intercept.Kind)
-		}
-		interceptorConfig = cfg.Intercept.Config
+	interceptor, ok := rCtx.Interceptors[cfg.Intercept.Kind]
+	if !ok {
+		return nil, fmt.Errorf("unknown interceptor kind %q", cfg.Intercept.Kind)
+	}
+	if interceptor == nil {
+		return nil, fmt.Errorf("interceptor kind %q resolved to nil", cfg.Intercept.Kind)
 	}
 
 	frontendCtx := &FrontendContext{
@@ -69,7 +66,7 @@ func LoadFrontendContext(rCtx *RuntimeContext, cfg api.FrontendConfig) (*Fronten
 		targetService:     targetService,
 		flowTimeout:       cfg.FlowTimeout,
 		interceptor:       interceptor,
-		interceptorConfig: interceptorConfig,
+		interceptorConfig: cfg.Intercept.Config,
 	}
 	targetService.frontend = frontendCtx
 	frontendCtx.state.Store(int32(api.FrontendStateStopped))
