@@ -8,7 +8,7 @@ PLUGIN_DIR := plugins
 
 build-dev-linux:
 	mkdir -p $(BUILD_DIR)
-	GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) go build -o $(BUILD_DIR)/$(APP_NAME)-dev .
+	GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) go build -o $(BUILD_DIR)/$(APP_NAME) .
 
 build-prod-linux:
 	mkdir -p $(BUILD_DIR)
