@@ -8,8 +8,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ConfigVersionV1 is the supported schema version for configuration files.
 const ConfigVersionV1 = "v1"
 
+// Config is the root runtime configuration document.
 type Config struct {
 	Version   string           `yaml:"version"`
 	Runtime   RuntimeConfig    `yaml:"runtime"`
@@ -17,11 +19,13 @@ type Config struct {
 	Frontends []FrontendConfig `yaml:"frontends"`
 }
 
+// RuntimeConfig configures process-level runtime behavior.
 type RuntimeConfig struct {
 	PluginDirectories []string `yaml:"plugin_directories"`
 	SocketPath        string   `yaml:"socket_path"`
 }
 
+// TargetConfig defines a backend target and how it is activated.
 type TargetConfig struct {
 	Name        string                `yaml:"name"`
 	Services    []TargetServiceConfig `yaml:"target_services"`
@@ -29,12 +33,14 @@ type TargetConfig struct {
 	Activator   *ActivatorConfig      `yaml:"activator"`
 }
 
+// TargetServiceConfig defines an addressable backend service on a target.
 type TargetServiceConfig struct {
 	Name     string         `yaml:"name"`
 	Protocol Protocol       `yaml:"protocol"`
 	Address  netip.AddrPort `yaml:"address"`
 }
 
+// FrontendConfig defines a listening socket and forwarding behavior.
 type FrontendConfig struct {
 	Name        string           `yaml:"name"`
 	Protocol    Protocol         `yaml:"protocol"`
@@ -44,21 +50,25 @@ type FrontendConfig struct {
 	Intercept   *InterceptConfig `yaml:"intercept"`
 }
 
+// ForwardConfig references which target service a frontend should route to.
 type ForwardConfig struct {
 	Target  string `yaml:"target"`
 	Service string `yaml:"service"`
 }
 
+// ActivatorConfig selects an activator implementation and its configuration.
 type ActivatorConfig struct {
 	Kind   string         `yaml:"kind"`
 	Config map[string]any `yaml:"config"`
 }
 
+// InterceptConfig selects an interceptor implementation and its configuration.
 type InterceptConfig struct {
 	Kind   string         `yaml:"kind"`
 	Config map[string]any `yaml:"config"`
 }
 
+// ParseConfig decodes and validates YAML configuration bytes.
 func ParseConfig(data []byte) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
@@ -89,6 +99,7 @@ func (c *Config) normalizeOptionalMaps() {
 	}
 }
 
+// Validate checks that the configuration is internally consistent and usable.
 func (c *Config) Validate() error {
 	if c.Version == "" {
 		return errors.New("config version is required")

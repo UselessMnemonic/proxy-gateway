@@ -6,10 +6,13 @@ import (
 	"time"
 )
 
+// TTL is a timeout value represented in seconds.
 type TTL uint32
 
 const (
+	// TTLMax is the largest representable TTL value.
 	TTLMax = TTL(math.MaxUint32)
+	// TTLMin is the smallest representable TTL value.
 	TTLMin = TTL(0)
 )
 
@@ -18,6 +21,7 @@ const (
 	ttlMinDuration = time.Duration(0)
 )
 
+// ParseTTL parses a duration string and converts it to whole seconds.
 func ParseTTL(text string) (TTL, error) {
 	result, err := time.ParseDuration(text)
 	if err != nil {
@@ -29,10 +33,12 @@ func ParseTTL(text string) (TTL, error) {
 	return TTL(result / time.Second), err
 }
 
+// Seconds returns the TTL value as seconds.
 func (t TTL) Seconds() uint32 {
 	return uint32(t)
 }
 
+// ToDuration converts the TTL value to a time.Duration.
 func (t TTL) ToDuration() time.Duration {
 	return time.Duration(t) * time.Second
 }

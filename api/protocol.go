@@ -6,10 +6,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Protocol is an L4 protocol identifier used by frontends and targets.
 type Protocol uint8
 
 const (
+	// ProtocolTCP identifies TCP.
 	ProtocolTCP Protocol = unix.IPPROTO_TCP
+	// ProtocolUDP identifies UDP.
 	ProtocolUDP Protocol = unix.IPPROTO_UDP
 )
 
@@ -24,10 +27,12 @@ func (p Protocol) String() string {
 	}
 }
 
+// IsValid reports whether p is a supported protocol value.
 func (p Protocol) IsValid() bool {
 	return p.String() != "invalid"
 }
 
+// ParseProtocol parses a protocol string such as "tcp" or "udp".
 func ParseProtocol(s string) (Protocol, error) {
 	switch s {
 	case "tcp":
