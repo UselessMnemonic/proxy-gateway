@@ -64,12 +64,29 @@ func ParseConfig(data []byte) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
+	cfg.normalizeOptionalMaps()
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	return &cfg, nil
+}
+
+func (c *Config) normalizeOptionalMaps() {
+	for i := range c.Targets {
+		target := &c.Targets[i]
+		if target.Activator != nil && target.Activator.Config == nil {
+			target.Activator.Config = map[string]any{}
+		}
+	}
+
+	for i := range c.Frontends {
+		frontend := &c.Frontends[i]
+		if frontend.Intercept != nil && frontend.Intercept.Config == nil {
+			frontend.Intercept.Config = map[string]any{}
+		}
+	}
 }
 
 func (c *Config) Validate() error {
