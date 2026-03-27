@@ -1,0 +1,19 @@
+# Build artifacts
+/build/
+
+# Go local caches (kept in-repo for local tooling)
+/.gocache/
+/.gomodcache/
+
+# Test and coverage outputs
+*.test
+*.out
+coverage.out
+
+# IDE/editor settings
+/.idea/
+/.vscode/
+*.iml
+
+# OS files
+.DS_Store
