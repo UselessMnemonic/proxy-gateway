@@ -8,6 +8,7 @@ import (
 	"net"
 	"proxy-gateway/api"
 	"proxy-gateway/ipc"
+	"time"
 )
 
 func RunCommandHandler(groupCtx context.Context, ctx *RuntimeContext, conn *net.UnixConn) {
@@ -47,6 +48,30 @@ func RunCommandHandler(groupCtx context.Context, ctx *RuntimeContext, conn *net.
 			result.Frontends[name] = ipc.StatusDetails{State: state.String(), Err: statusErr}
 		}
 		response = ipc.WrapValue(result)
+	case ipc.KindExternalFrontendRegisterRequest:
+		response = ipc.WrapValue(ipc.ExternalFrontendRegisterResponse{
+			Accepted: false,
+			Message:  "external frontend registration not enabled in v1 runtime",
+		})
+	case ipc.KindExternalFrontendHeartbeatRequest:
+		response = ipc.WrapValue(ipc.ExternalFrontendHeartbeatResponse{
+			Accepted: false,
+			Message:  "external frontend heartbeat not enabled in v1 runtime",
+		})
+	case ipc.KindPluginHostHelloRequest:
+		hello, err := ipc.UnwrapValue[ipc.PluginHostHelloRequest](request)
+		if err != nil {
+			response = ipc.WrapValue(ipc.Error{Message: fmt.Sprintf("decode plugin hello: %v", err)})
+			break
+		}
+		ctx.RegisterPluginTunnel(PluginTunnel{
+			Name:        hello.PluginName,
+			Instance:    hello.Instance,
+			Tunnel:      hello.Tunnel,
+			ConnectedAt: time.Now(),
+			Remote:      conn.RemoteAddr().String(),
+		})
+		response = ipc.WrapValue(ipc.PluginHostHelloResponse{Accepted: true, Message: "registered"})
 	default:
 		response = ipc.WrapValue(ipc.Error{
 			Message: fmt.Sprintf("unknown IPC kind: %v", request.Kind),

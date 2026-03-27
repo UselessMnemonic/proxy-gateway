@@ -21,8 +21,8 @@ type Config struct {
 
 // RuntimeConfig configures process-level runtime behavior.
 type RuntimeConfig struct {
-	PluginDirectories []string `yaml:"plugin_directories"`
-	SocketPath        string   `yaml:"socket_path"`
+	SocketPath            string `yaml:"socket_path"`
+	PluginDefinitionsPath string `yaml:"plugin_definitions_path"`
 }
 
 // TargetConfig defines a backend target and how it is activated.
@@ -106,6 +106,12 @@ func (c *Config) Validate() error {
 	}
 	if c.Version != ConfigVersionV1 {
 		return fmt.Errorf("unsupported config version %q", c.Version)
+	}
+	if c.Runtime.SocketPath == "" {
+		return errors.New("runtime.socket_path is required")
+	}
+	if c.Runtime.PluginDefinitionsPath == "" {
+		return errors.New("runtime.plugin_definitions_path is required")
 	}
 
 	targets := make(map[string]map[string]TargetServiceConfig, len(c.Targets))

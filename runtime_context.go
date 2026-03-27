@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
-	"path/filepath"
 	"proxy-gateway/api"
-	"strings"
+	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
 
 type RuntimeContext struct {
+	Config       *api.Config
 	Plugins      map[string]*PluginContext
 	Targets      map[string]*TargetContext
 	Frontends    map[string]*FrontendContext
@@ -23,20 +23,25 @@ type RuntimeContext struct {
 	Nftables     *NftablesContext
 	Conntrack    *ConntrackContext
 	Socket       *net.UnixListener
+	PluginHosts  *PluginHostContext
+
+	pluginMu      sync.RWMutex
+	pluginTunnels map[string]PluginTunnel
 }
 
 func LoadRuntimeContext(cfg *api.Config) (*RuntimeContext, error) {
 	var err error
 
 	ctx := &RuntimeContext{
-		Plugins:      make(map[string]*PluginContext),
-		Targets:      make(map[string]*TargetContext, len(cfg.Targets)),
-		Frontends:    make(map[string]*FrontendContext, len(cfg.Frontends)),
-		Activators:   DefaultActivators(),
-		Interceptors: DefaultInterceptors(),
+		Config:        cfg,
+		Plugins:       make(map[string]*PluginContext),
+		Targets:       make(map[string]*TargetContext, len(cfg.Targets)),
+		Frontends:     make(map[string]*FrontendContext, len(cfg.Frontends)),
+		Activators:    DefaultActivators(),
+		Interceptors:  DefaultInterceptors(),
+		pluginTunnels: make(map[string]PluginTunnel),
 	}
 
-	// in case something goes wrong here, clean up resources immediately
 	defer func() {
 		if err != nil {
 			if ctx.Socket != nil {
@@ -48,9 +53,7 @@ func LoadRuntimeContext(cfg *api.Config) (*RuntimeContext, error) {
 		}
 	}()
 
-	// capture ipc socket
-	var socketAddr *net.UnixAddr
-	socketAddr, err = net.ResolveUnixAddr("unix", cfg.Runtime.SocketPath)
+	socketAddr, err := net.ResolveUnixAddr("unix", cfg.Runtime.SocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve unix socket address: %v", err)
 	}
@@ -60,80 +63,43 @@ func LoadRuntimeContext(cfg *api.Config) (*RuntimeContext, error) {
 	}
 	ctx.Socket.SetUnlinkOnClose(true)
 
-	// load plugins
-	for _, directory := range cfg.Runtime.PluginDirectories {
-		var entries []os.DirEntry
-		var pluginCtx *PluginContext
-
-		entries, err = os.ReadDir(directory)
-		if err != nil {
-			return nil, fmt.Errorf("error reading plugin directory %q: %w", directory, err)
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-
-			name := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
-			if _, exists := ctx.Plugins[name]; exists {
-				err = fmt.Errorf("plugin %q is defined more than once", name)
-				return nil, err
-			}
-			path := filepath.Join(directory, entry.Name())
-
-			pluginCtx, err = LoadPluginContext(path)
-			if err != nil {
-				return nil, fmt.Errorf("error loading plugin %q: %w", path, err)
-			}
-			ctx.Plugins[name] = pluginCtx
-
-			err = pluginCtx.OnRegister(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("error loading plugin %q: %w", path, err)
-			}
-		}
-	}
-
-	// load targets
 	for _, targetCfg := range cfg.Targets {
-		var targetCtx *TargetContext
-		targetCtx, err = LoadTargetContext(ctx, targetCfg)
+		targetCtx, err := LoadTargetContext(ctx, targetCfg)
 		if err != nil {
 			return nil, fmt.Errorf("error loading target %q: %w", targetCfg.Name, err)
 		}
 		ctx.Targets[targetCfg.Name] = targetCtx
 	}
 
-	// load frontends
 	for _, frontendCfg := range cfg.Frontends {
-		var frontendCtx *FrontendContext
-		frontendCtx, err = LoadFrontendContext(ctx, frontendCfg)
+		frontendCtx, err := LoadFrontendContext(ctx, frontendCfg)
 		if err != nil {
 			return nil, fmt.Errorf("error loading frontend %q: %w", frontendCfg.Name, err)
 		}
 		ctx.Frontends[frontendCfg.Name] = frontendCtx
 	}
 
-	// load nftables
 	ctx.Nftables, err = DialNftables()
 	if err != nil {
 		return nil, err
 	}
 	for fName, f := range ctx.Frontends {
-		err = ctx.Nftables.SetTTL(fName, f.protocol, f.listen, f.flowTimeout)
-		if err != nil {
+		if err = ctx.Nftables.SetTTL(fName, f.protocol, f.listen, f.flowTimeout); err != nil {
 			return nil, err
 		}
 	}
 
-	// load conntrack watchdog
 	ctx.Conntrack, err = DialConntrack(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return ctx, err
+	ctx.PluginHosts, err = LoadPluginHostContext(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return ctx, nil
 }
 
 func (ctx *RuntimeContext) RegisterActivator(kind string, activator api.Activator) error {
@@ -165,8 +131,6 @@ func (ctx *RuntimeContext) RegisterInterceptor(kind string, interceptor api.Inte
 }
 
 func (ctx *RuntimeContext) Start(group *errgroup.Group, groupCtx context.Context) {
-
-	// command listener
 	group.Go(func() error {
 		log.Printf("[listener] started socket=%s", ctx.Socket.Addr())
 		socketContext, cancel := context.WithCancel(groupCtx)
@@ -192,16 +156,31 @@ func (ctx *RuntimeContext) Start(group *errgroup.Group, groupCtx context.Context
 		}
 	})
 
-	// target activators
 	for _, target := range ctx.Targets {
 		target.Start(group, groupCtx, ctx)
 	}
 
-	// conntrack watchdog
+	if ctx.PluginHosts != nil {
+		ctx.PluginHosts.Start(group, groupCtx, ctx.Config)
+	}
+
 	ctx.Conntrack.Start(group, groupCtx)
 
-	// frontend listeners
 	for _, frontend := range ctx.Frontends {
 		frontend.Start(group, groupCtx)
 	}
+}
+
+type PluginTunnel struct {
+	Name        string
+	Instance    int
+	Tunnel      string
+	ConnectedAt time.Time
+	Remote      string
+}
+
+func (ctx *RuntimeContext) RegisterPluginTunnel(t PluginTunnel) {
+	ctx.pluginMu.Lock()
+	defer ctx.pluginMu.Unlock()
+	ctx.pluginTunnels[t.Tunnel] = t
 }

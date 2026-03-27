@@ -40,10 +40,22 @@ const (
 	KindError
 	KindStatusRequest
 	KindStatusResponse
+	KindExternalFrontendRegisterRequest
+	KindExternalFrontendRegisterResponse
+	KindExternalFrontendHeartbeatRequest
+	KindExternalFrontendHeartbeatResponse
+	KindPluginHostHelloRequest
+	KindPluginHostHelloResponse
 )
 
 func RegisterGobTypes() {
 	gob.Register(Error{})
 	gob.Register(StatusRequest{})
 	gob.Register(StatusResponse{})
+	gob.Register(ExternalFrontendRegisterRequest{})
+	gob.Register(ExternalFrontendRegisterResponse{})
+	gob.Register(ExternalFrontendHeartbeatRequest{})
+	gob.Register(ExternalFrontendHeartbeatResponse{})
+	gob.Register(PluginHostHelloRequest{})
+	gob.Register(PluginHostHelloResponse{})
 }

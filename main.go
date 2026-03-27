@@ -18,7 +18,7 @@ func main() {
 	ipc.RegisterGobTypes()
 
 	app := kingpin.New("proxy-gateway", "Proxy Gateway runtime and control CLI")
-	configPath := app.Flag("config", "Path to configuration file").Default("/etc/proxy-gateway.yaml").String()
+	configPath := app.Flag("config", "Path to configuration file").Required().String()
 
 	startCmd := app.Command("start", "Start the proxy gateway runtime")
 
