@@ -3,20 +3,18 @@ BUILD_DIR := build
 LINUX_GOOS := linux
 LINUX_GOARCH ?= arm64
 PLUGIN_DIR := plugins
+LINUX_CC ?= aarch64-linux-gnu-gcc
+LDFLAGS := -linkmode=external -extldflags=-fuse-ld=bfd
 
-.PHONY: build-dev-linux build-prod-linux build-plugins-dev-linux build-all-dev-linux
+.PHONY: build-linux build-plugins-linux build-all-linux
 
-build-dev-linux:
+build-linux:
 	mkdir -p $(BUILD_DIR)
-	GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) go build -o $(BUILD_DIR)/$(APP_NAME) .
+	CGO_ENABLED=1 GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) CC=$(LINUX_CC) go build -trimpath -ldflags='$(LDFLAGS)' -o $(BUILD_DIR)/$(APP_NAME) .
 
-build-prod-linux:
+build-plugins-linux:
 	mkdir -p $(BUILD_DIR)
-	GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) go build -trimpath -ldflags="-s -w" -o $(BUILD_DIR)/$(APP_NAME) .
+	cd $(PLUGIN_DIR)/ec2              && CGO_ENABLED=1 GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) CC=$(LINUX_CC) go build -trimpath -buildmode=plugin -ldflags='$(LDFLAGS)' -o $(CURDIR)/$(BUILD_DIR)/ec2.so .
+	cd $(PLUGIN_DIR)/minecraft-server && CGO_ENABLED=1 GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) CC=$(LINUX_CC) go build -trimpath -buildmode=plugin -ldflags='$(LDFLAGS)' -o $(CURDIR)/$(BUILD_DIR)/minecraft-server.so .
 
-build-plugins-dev-linux:
-	mkdir -p $(BUILD_DIR)
-	cd $(PLUGIN_DIR)/ec2-activator && CGO_ENABLED=1 GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) go build -buildmode=plugin -o $(CURDIR)/$(BUILD_DIR)/ec2-activator.so .
-	cd $(PLUGIN_DIR)/minecraft-interceptor && CGO_ENABLED=1 GOOS=$(LINUX_GOOS) GOARCH=$(LINUX_GOARCH) go build -buildmode=plugin -o $(CURDIR)/$(BUILD_DIR)/minecraft-interceptor.so .
-
-build-all-dev-linux: build-dev-linux build-plugins-dev-linux
+build-all-linux: build-linux build-plugins-linux

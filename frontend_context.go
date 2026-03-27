@@ -161,6 +161,7 @@ func runUDP(ctx *FrontendContext, group *errgroup.Group, groupCtx context.Contex
 		log.Printf("[frontend:%s] udp bind failed: %v", ctx.name, err)
 		return
 	}
+	ctx.updateState(api.FrontendStateRunning, nil)
 	log.Printf("[frontend:%s] udp listening on %s", ctx.name, ctx.listen)
 	defer log.Printf("[frontend:%s] udp listen stopped", ctx.name)
 

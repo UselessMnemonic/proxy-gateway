@@ -22,9 +22,9 @@ func LoadPluginContext(path string) (*PluginContext, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error parsing %s#%s: %w", path, api.SymbolOnRegister, err)
 	}
-	onRegister, ok := symbol.(api.OnRegisterFunc)
+	onRegister, ok := symbol.(func(api.Registry) error)
 	if !ok {
-		return nil, fmt.Errorf("could not find %s in %s", api.SymbolOnRegister, path)
+		return nil, fmt.Errorf("%s in %s was type %T", api.SymbolOnRegister, path, symbol)
 	}
 
 	pluginCtx := &PluginContext{

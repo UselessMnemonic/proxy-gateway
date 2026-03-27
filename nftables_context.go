@@ -239,8 +239,7 @@ func (ctx *NftablesContext) AddDNAT(protocol api.Protocol, matchAddress netip.Ad
 	if err := ctx.conn.SetAddElements(lookup, []nftables.SetElement{element}); err != nil {
 		return fmt.Errorf("add map entry: %w", err)
 	}
-	_ = ctx.conn.Flush()
-	return nil
+	return ctx.conn.Flush()
 }
 
 func (ctx *NftablesContext) ClearDNAT(protocol api.Protocol, matchAddress netip.AddrPort) error {
@@ -264,8 +263,7 @@ func (ctx *NftablesContext) ClearDNAT(protocol api.Protocol, matchAddress netip.
 	if err := ctx.conn.SetDeleteElements(lookup, []nftables.SetElement{element}); err != nil {
 		return fmt.Errorf("delete map entry: %w", err)
 	}
-	_ = ctx.conn.Flush()
-	return nil
+	return ctx.conn.Flush()
 }
 
 func (ctx *NftablesContext) SetTTL(name string, protocol api.Protocol, matchListen netip.AddrPort, ttl api.TTL) error {
@@ -278,11 +276,20 @@ func (ctx *NftablesContext) SetTTL(name string, protocol api.Protocol, matchList
 		return fmt.Errorf("address type must be IPv4 or IPv6")
 	}
 
+	// TODO find the right place/method to do this
+	if protocol != api.ProtocolUDP {
+		return nil
+	}
+	if ttl == 0 {
+		return nil
+	}
+
 	ttlObj := &nftables.NamedObj{
 		Table: ctx.table,
 		Name:  name,
 		Type:  nftables.ObjTypeCtTimeout,
 		Obj: &expr.CtTimeout{
+			L3Proto: uint16(matchAddressFamily),
 			L4Proto: uint8(protocol),
 			Policy: expr.CtStatePolicyTimeout{
 				expr.CtStateUDPUNREPLIED: ttl.Seconds(),
@@ -411,17 +418,25 @@ func encodePort(port uint16) []byte {
 
 func encodeMapKey(protocol api.Protocol, address netip.AddrPort) []byte {
 	addr := address.Addr().AsSlice()
-	buf := make([]byte, 0, 1+len(addr)+2)
-	buf = append(buf, uint8(protocol))
-	buf = append(buf, addr...)
-	buf = append(buf, encodePort(address.Port())...)
+	buf := make([]byte, 0, 4+len(addr)+4)
+	buf = appendConcatField(buf, []byte{uint8(protocol)})
+	buf = appendConcatField(buf, addr)
+	buf = appendConcatField(buf, encodePort(address.Port()))
 	return buf
 }
 
 func encodeMapValue(address netip.AddrPort) []byte {
 	addr := address.Addr().AsSlice()
-	buf := make([]byte, 0, len(addr)+2)
-	buf = append(buf, addr...)
-	buf = append(buf, encodePort(address.Port())...)
+	buf := make([]byte, 0, len(addr)+4)
+	buf = appendConcatField(buf, addr)
+	buf = appendConcatField(buf, encodePort(address.Port()))
 	return buf
+}
+
+func appendConcatField(dst []byte, field []byte) []byte {
+	dst = append(dst, field...)
+	if rem := len(field) % 4; rem != 0 {
+		dst = append(dst, make([]byte, 4-rem)...)
+	}
+	return dst
 }
