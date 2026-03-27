@@ -8,12 +8,12 @@ import (
 
 type Noop struct{}
 
-func (Noop) HandleTCP(_ context.Context, _ *net.TCPConn, shouldActivate api.ShouldActivateFunc) error {
+func (Noop) HandleTCP(_ context.Context, _ *net.TCPConn, _ map[string]any, shouldActivate api.ShouldActivateFunc) error {
 	shouldActivate()
 	return nil
 }
 
-func (Noop) HandleUDP(_ context.Context, _ *net.UDPConn, shouldActivate api.ShouldActivateFunc) error {
+func (Noop) HandleUDP(_ context.Context, _ *net.UDPConn, _ map[string]any, shouldActivate api.ShouldActivateFunc) error {
 	shouldActivate()
 	return nil
 }
