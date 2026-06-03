@@ -11,6 +11,7 @@ func init() {
 	ok := plugin.Register("github.com/UselessMnemonic/proxygw/plugin/static", plugin.Handler{
 		OnLoad: func(_ map[string]any, _ *engine.Engine, namespace *plugin.Namespace) error {
 			namespace.Frontends["always"] = frontends.NewAlwaysHandler
+			namespace.Frontends["drop"] = frontends.NewDropHandler
 			namespace.Frontends["http"] = frontends.NewHTTPHandler
 			namespace.Targets["cmd"] = targets.NewCmdHandler
 			namespace.Targets["none"] = targets.NewNoneHandler
